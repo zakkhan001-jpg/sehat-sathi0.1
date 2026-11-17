@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <meta name="theme-color" content="#0f766e" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="सेहत साथी" />
+  <title>परिवार सेहत साथी — दैनिक डाइट और पानी रिमाइंडर</title>
+
+  <!-- Google Fonts: Noto Sans Devanagari for crisp, readable Hindi -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            hindi: ['"Noto Sans Devanagari"', 'Mangal', 'sans-serif'],
+          },
+          colors: {
+            brandTeal: '#0f766e',
+            brandRose: '#9f1239',
+            warmCream: '#fafaf9',
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body {
+      font-family: 'Noto Sans Devanagari', 'Mangal', sans-serif;
+      background-color: #f5f5f4;
+      color: #1c1917;
+      -webkit-tap-highlight-color: transparent;
+    }
+    /* Custom smooth scrollbar for day pills */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    /* Accessible checkbox styling */
+    .task-checkbox {
+      width: 1.5rem;
+      height: 1.5rem;
+      accent-color: #0f766e;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .wife-theme .task-checkbox {
+      accent-color: #9f1239;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-teal-100">
+
+  <!-- Top App Bar -->
+  <header id="appHeader" class="bg-teal-700 text-white shadow-md sticky top-0 z-30 transition-colors duration-300">
+    <div class="max-w-2xl mx-auto px-4 pt-3 pb-3">
+      <div class="flex items-center justify-between gap-2">
+        <div>
+          <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight flex items-center gap-2">
+            <span>🌿 परिवार सेहत साथी</span>
+          </h1>
+          <p class="text-xs sm:text-sm text-white/90 mt-0.5">लखनऊ-उ.प्र. खान-पान, पानी और कसरत का रोज़ाना चार्ट</p>
+        </div>
+        <button id="notifBtn" onclick="requestBrowserNotifications()" class="bg-white/20 hover:bg-white/30 active:scale-95 text-white text-xs sm:text-sm font-semibold px-3 py-2 rounded-xl border border-white/30 transition flex items-center gap-1.5 shrink-0">
+          <span id="notifIcon">🔔</span>
+          <span id="notifText">अलर्ट चालू करें</span>
+        </button>
+      </div>
+
+      <!-- Profile Switcher Tabs -->
+      <div class="grid grid-cols-2 gap-2.5 mt-3 bg-black/15 p-1.5 rounded-2xl">
+        <button id="tabMother" onclick="switchProfile('mother')" class="py-2.5 px-3 rounded-xl font-bold text-sm sm:text-base transition-all flex items-center justify-center gap-1.5 bg-white text-teal-800 shadow">
+          <span>👵 माताजी (60+ वर्ष)</span>
+        </button>
+        <button id="tabWife" onclick="switchProfile('wife')" class="py-2.5 px-3 rounded-xl font-bold text-sm sm:text-base transition-all flex items-center justify-center gap-1.5 text-white/90 hover:bg-white/10">
+          <span>👩 पत्नी (30 वर्ष)</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="max-w-2xl w-full mx-auto px-3 sm:px-4 py-4 flex-1 space-y-4">
+
+    <!-- In-App Toast / Alert Banner (Replaces alert() safely) -->
+    <div id="statusBanner" class="hidden rounded-2xl p-3.5 text-sm font-medium shadow-sm border flex items-start justify-between gap-3 transition-all">
+      <div class="flex items-start gap-2.5">
+        <span id="statusBannerIcon" class="text-lg">ℹ️</span>
+        <p id="statusBannerMsg" class="leading-relaxed"></p>
+      </div>
+      <button onclick="hideBanner()" class="text-stone-500 hover:text-stone-800 font-bold px-2 py-0.5 rounded-lg">✕</button>
+    </div>
+
+    <!-- Profile Summary & Daily Macros Card -->
+    <section id="macroCard" class="bg-white rounded-2xl p-4 shadow-sm border border-stone-200">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 pb-2.5">
+        <div>
+          <h2 id="profileTitle" class="text-lg font-bold text-teal-800">माताजी की दैनिक स्वास्थ्य सीमा</h2>
+          <p id="profileSubtitle" class="text-xs sm:text-sm text-stone-600">लक्ष्य: 85+ किग्रा से 60 किग्रा • शुगर और बीपी नियंत्रण</p>
+        </div>
+        <span id="todayDateBadge" class="text-xs font-semibold bg-amber-100 text-amber-900 px-3 py-1 rounded-full"></span>
+      </div>
+
+      <!-- 4 Macro Pills -->
+      <div id="macroGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-3">
+        <!-- Populated dynamically -->
+      </div>
+
+      <!-- Special Health Note -->
+      <div id="healthNoteBox" class="mt-3 bg-teal-50/80 border-l-4 border-teal-600 p-2.5 rounded-r-xl text-xs sm:text-sm text-teal-950 leading-relaxed">
+        <!-- Populated dynamically -->
+      </div>
+    </section>
+
+    <!-- Live Daily Progress Bar -->
+    <section class="bg-white rounded-2xl p-4 shadow-sm border border-stone-200">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-sm sm:text-base font-bold text-stone-800">📊 आज की प्रगति (पूरे दिन का लक्ष्य)</span>
+        <span id="progressText" class="text-base sm:text-lg font-extrabold text-teal-700">0% (0/0)</span>
+      </div>
+      <div class="w-full bg-stone-200 rounded-full h-3.5 overflow-hidden">
+        <div id="progressBar" class="bg-teal-600 h-3.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+      </div>
+      <p class="text-xs text-stone-500 mt-2">हर खाना, पानी का गिलास और कसरत पूरा होने पर नीचे बॉक्स में सही (✓) का निशान लगाएँ।</p>
+    </section>
+
+    <!-- 1-Tap Phone Calendar Alarm Download Card -->
+    <section id="alarmCard" class="bg-amber-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h3 class="text-base font-bold text-amber-950 flex items-center gap-1.5">
+            <span>⏰ फ़ोन में रोज़ के ऑटोमैटिक अलार्म लगाएँ</span>
+          </h3>
+          <p class="text-xs sm:text-sm text-amber-900/90 mt-1 leading-relaxed">
+            नीचे दिए बटन को दबाने से एक कैलेंडर फ़ाइल डाउनलोड होगी। उसे खोलकर <strong>"Save / Add All"</strong> दबाएँ—फ़ोन बंद या ऑफ़लाइन होने पर भी हर खाने और पानी के समय घंटी बजेगी।
+          </p>
+        </div>
+        <button id="downloadIcsBtn" onclick="downloadICS()" class="bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-sm px-4 py-3 rounded-xl shadow transition shrink-0 flex items-center justify-center gap-2">
+          <span>📥 फ़ोन कैलेंडर अलार्म डाउनलोड करें (.ics)</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Day of Week Selector -->
+    <section class="bg-white rounded-2xl p-3.5 shadow-sm border border-stone-200">
+      <div class="flex items-center justify-between mb-2.5 px-1">
+        <span class="text-sm font-bold text-stone-700">📅 दिन चुनें (सोमवार से रविवार):</span>
+        <button onclick="selectToday()" class="text-xs font-bold text-teal-700 hover:underline">आज का दिन दिखाएँ</button>
+      </div>
+      <div id="dayPills" class="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+        <!-- Populated dynamically -->
+      </div>
+    </section>
+
+    <!-- Section 1: Today's Meal Plan Checklist -->
+    <section class="bg-white rounded-2xl p-4 shadow-sm border border-stone-200">
+      <h3 id="mealSectionTitle" class="text-base sm:text-lg font-extrabold text-stone-800 border-b border-stone-100 pb-2.5 flex items-center gap-2">
+        <span>🍽️ आज का भोजन चार्ट</span>
+      </h3>
+      <div id="mealList" class="divide-y divide-stone-100 mt-1">
+        <!-- Populated dynamically -->
+      </div>
+    </section>
+
+    <!-- Section 2: Water Timing Checklist -->
+    <section class="bg-white rounded-2xl p-4 shadow-sm border border-stone-200">
+      <div class="border-b border-stone-100 pb-2.5">
+        <h3 class="text-base sm:text-lg font-extrabold text-stone-800 flex items-center gap-2">
+          <span>💧 पानी पीने का सही समय</span>
+        </h3>
+        <p id="waterSubtitle" class="text-xs sm:text-sm text-stone-600 mt-0.5"></p>
+      </div>
+      <div id="waterList" class="divide-y divide-stone-100 mt-1">
+        <!-- Populated dynamically -->
+      </div>
+    </section>
+
+    <!-- Section 3: Exercise & Movement Checklist -->
+    <section class="bg-white rounded-2xl p-4 shadow-sm border border-stone-200">
+      <div class="border-b border-stone-100 pb-2.5">
+        <h3 class="text-base sm:text-lg font-extrabold text-stone-800 flex items-center gap-2">
+          <span>🏃‍♀️ शारीरिक कसरत और गतिविधियाँ</span>
+        </h3>
+        <p id="exerciseSubtitle" class="text-xs sm:text-sm text-stone-600 mt-0.5"></p>
+      </div>
+      <div id="exerciseList" class="divide-y divide-stone-100 mt-1">
+        <!-- Populated dynamically -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Privacy & Reset Footer -->
+  <footer class="max-w-2xl w-full mx-auto px-4 py-6 text-center space-y-3 border-t border-stone-200 mt-4">
+    <div class="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm font-semibold px-4 py-2 rounded-full">
+      <span>🔒 100% ऑफ़लाइन और सुरक्षित — आपका डेटा केवल आपके फ़ोन में रहता है</span>
+    </div>
+    <p class="text-xs text-stone-500 max-w-md mx-auto leading-relaxed">
+      यह ऐप किसी बाहरी सर्वर या इंटरनेट पर आपकी कोई जानकारी नहीं भेजता। स्वास्थ्य संबंधी किसी भी बदलाव या दवा की मात्रा के लिए अपने डॉक्टर से सलाह ज़रूर लें।
+    </p>
+    <div class="pt-1 flex justify-center gap-3">
+      <button onclick="confirmResetToday()" class="text-xs sm:text-sm font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-4 py-2 rounded-xl transition">
+        🔄 आज के निशान (Ticks) रीसेट करें
+      </button>
+    </div>
+
+    <!-- Inline Custom Confirmation Modal (No browser confirm()) -->
+    <div id="resetConfirmBox" class="hidden max-w-sm mx-auto bg-white border border-rose-300 rounded-2xl p-3.5 shadow-md mt-2">
+      <p class="text-sm font-bold text-stone-800">क्या आप आज की सभी टिक (✓) हटाना चाहते हैं?</p>
+      <div class="flex justify-center gap-3 mt-3">
+        <button onclick="executeResetToday()" class="bg-rose-600 text-white text-xs font-bold px-4 py-2 rounded-xl">हाँ, रीसेट करें</button>
+        <button onclick="cancelResetToday()" class="bg-stone-200 text-stone-800 text-xs font-bold px-4 py-2 rounded-xl">नहीं, रहने दें</button>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // =========================================================================
+    // 1. COMPLETE HINDI DIET, WATER & EXERCISE DATA (MOTHER & WIFE)
+    // =========================================================================
+    const DAYS = [
+      { key: 'mon', label: 'सोमवार', short: 'सोम' },
+      { key: 'tue', label: 'मंगलवार', short: 'मंगल' },
+      { key: 'wed', label: 'बुधवार', short: 'बुध' },
+      { key: 'thu', label: 'गुरुवार', short: 'गुरु' },
+      { key: 'fri', label: 'शुक्रवार', short: 'शुक्र' },
+      { key: 'sat', label: 'शनिवार', short: 'शनि' },
+      { key: 'sun', label: 'रविवार', short: 'रवि' }
+    ];
+
+    const PROFILES = {
+      mother: {
+        id: 'mother',
+        name: 'माताजी (60+ वर्ष)',
+        title: 'माताजी की दैनिक स्वास्थ्य सीमा',
+        subtitle: 'कद: 4 फीट 7 इंच • वर्तमान: 85+ किग्रा → लक्ष्य: 60 किग्रा • शुगर व बीपी नियंत्रण',
+        themeColor: '#0f766e',
+        macros: [
+          { label: 'प्रोटीन (ताकत)', value: '60–75 ग्राम', sub: 'हर खाने में ज़रूरी' },
+          { label: 'कार्ब्स (रोटी)', value: '130–160 ग्राम', sub: 'मिस्सी/बाजरा रोटी' },
+          { label: 'चीनी / गुड़', value: '0 ग्राम', sub: 'बिल्कुल बंद रखें' },
+          { label: 'नमक व तेल', value: '< ¾ चम्मच नमक', sub: '3–4 छोटे चम्मच तेल' }
+        ],
+        healthNote: '🩺 विशेष ध्यान: बार-बार पेशाब आने की समस्या के लिए दिन का 70–80% पानी शाम 5 बजे से पहले पी लें। मटन, निहारी, अचार और मैदा न लें।',
+        waterSubtitle: 'बार-बार पेशाब से बचने के लिए शाम 5 बजे से पहले ज़्यादा पानी पिएँ:',
+        waterSchedule: [
+          { id: 'mw1', time: '06:30', displayTime: 'सुबह 6:30 बजे', title: '1 से 2 गिलास गुनगुना पानी', desc: 'उठते ही खाली पेट पिएँ (शरीर की सफाई और कब्ज से बचाव)।' },
+          { id: 'mw2', time: '10:30', displayTime: 'सुबह 10:30 बजे', title: '1 से 2 गिलास पानी या बिना नमक की छाछ', desc: 'भुना जीरा डालकर छाछ या सादा पानी धीरे-धीरे पिएँ।' },
+          { id: 'mw3', time: '13:00', displayTime: 'दोपहर 1:00 बजे', title: '1 गिलास पानी (खाने से 30 मिनट पहले)', desc: 'दोपहर के खाने से आधा घंटा पहले पिएँ।' },
+          { id: 'mw4', time: '16:00', displayTime: 'शाम 4:00 बजे', title: '1 से 2 गिलास पानी (दिन का मुख्य पानी पूरा करें)', desc: 'शाम 4 बजे के बाद चाय/कॉफ़ी न पिएँ, इससे पेशाब ज़्यादा आता है।' },
+          { id: 'mw5', time: '19:30', displayTime: 'रात 7:30 बजे (सीमित)', title: 'केवल आधा गिलास पानी घूँट-घूँट कर', desc: 'सोने से 2.5 घंटे पहले पानी बंद कर दें ताकि रात में नींद खराब न हो।' }
+        ],
+        exerciseSubtitle: '15 मिनट साइकिल के साथ घुटनों के लिए सुरक्षित कुर्सी वाली कसरत (हफ़्ते में 3–4 दिन):',
+        exercises: [
+          { id: 'me1', time: '07:30', title: '15 मिनट साइकिल चलाना (धीमी व मध्यम गति)', desc: 'घर की स्थिर साइकिल पर आराम से चलाएँ।' },
+          { id: 'me2', time: '14:15', title: 'दोपहर खाने के बाद 10 मिनट घर में टहलना', desc: 'खाने के तुरंत बाद न लेटें, धीरे-धीरे टहलने से शुगर नियंत्रित रहती है।' },
+          { id: 'me3', time: '17:30', title: 'कुर्सी से उठना-बैठना और पैर सीधा करना', desc: 'कुर्सी के सहारे 8–10 बार उठें-बैठें और बैठे-बैठे दोनों पैर 10 बार सीधे करें।' },
+          { id: 'me4', time: '17:45', title: 'दीवार पर पुश-अप और दुपट्टे से खिंचाव', desc: 'दीवार पर हाथ रखकर 10 बार पुश-अप करें और दुपट्टे से कमर-कंधे खींचें।' },
+          { id: 'me5', time: '18:00', title: 'पेशाब नियंत्रण की कसरत (कीगल एक्सरसाइज)', desc: 'कुर्सी पर बैठकर पेशाब रोकने वाली मांसपेशियों को 5 सेकंड रोकें और छोड़ें (10 बार)।' }
+        ],
+        meals: {
+          mon: [
+            { id: 'm_mon_1', time: '06:45', displayTime: 'सुबह 6:45', type: 'सुबह की शुरुआत', item: '4–5 भीगे बादाम, 1–2 अखरोट + बिना चीनी की अदरक-इलायची चाय' },
+            { id: 'm_mon_2', time: '08:30', displayTime: 'सुबह 8:30', type: 'नाश्ता', item: '2 अंडे का सफेद हिस्सा + 1 पूरा अंडा (पालक-प्याज ऑमलेट) + 1 छोटी मिस्सी रोटी' },
+            { id: 'm_mon_3', time: '11:30', displayTime: 'सुबह 11:30', type: 'दोपहर से पहले', item: '1 अमरूद (बिना नमक) या 1 छोटा सेब' },
+            { id: 'm_mon_4', time: '13:30', displayTime: 'दोपहर 1:30', type: 'दोपहर का खाना', item: '100 ग्राम कम तेल की चिकन करी + 1–2 छोटी मिस्सी रोटी + लौकी की सब्जी + खीरा सलाद' },
+            { id: 'm_mon_5', time: '17:00', displayTime: 'शाम 5:00', type: 'शाम का नाश्ता', item: '1 कटोरी गरम चिकन यखनी सूप (काली मिर्च व अदरक वाला, कम नमक)' },
+            { id: 'm_mon_6', time: '19:30', displayTime: 'रात 7:30', type: 'रात का खाना', item: '1 कटोरी मूंग दाल खिचड़ी (सब्जियों वाली) + लौकी का रायता' }
+          ],
+          tue: [
+            { id: 'm_tue_1', time: '06:45', displayTime: 'सुबह 6:45', type: 'सुबह की शुरुआत', item: '4–5 भीगे बादाम, 1–2 अखरोट + बिना चीनी की चाय' },
+            { id: 'm_tue_2', time: '08:30', displayTime: 'सुबह 8:30', type: 'नाश्ता', item: '2 मूंग दाल चीला (पनीर और पालक भरा हुआ) + हरी धनिया चटनी' },
+            { id: 'm_tue_3', time: '11:30', displayTime: 'सुबह 11:30', type: 'दोपहर से पहले', item: '1 कटोरी पपीता या 1 संतरा' },
+            { id: 'm_tue_4', time: '13:30', displayTime: 'दोपहर 1:30', type: 'दोपहर का खाना', item: '1 कटोरी अरहर/मसूर दाल + पालक या मेथी की सब्जी + 1–2 मिस्सी रोटी + सलाद' },
+            { id: 'm_tue_5', time: '17:00', displayTime: 'शाम 5:00', type: 'शाम का नाश्ता', item: '1 मुट्ठी भुना मखाना या भुना काला चना (बिना नमक)' },
+            { id: 'm_tue_6', time: '19:30', displayTime: 'रात 7:30', type: 'रात का खाना', item: 'भुना हुआ चिकन टिक्का (100 ग्राम) + उबली हरी सब्जियाँ + 1 छोटी रोटी' }
+          ],
+          wed: [
+            { id: 'm_wed_1', time: '06:45', displayTime: 'सुबह 6:45', type: 'सुबह की शुरुआत', item: '4–5 भीगे बादाम, 1–2 अखरोट + बिना चीनी की चाय' },
+            { id: 'm_wed_2', time: '08:30', displayTime: 'सुबह 8:30', type: 'नाश्ता', item: '1 कटोरी नमकीन दलिया (मटर, गाजर, बीन्स डालकर) + 1 छोटी कटोरी दही' },
+            { id: 'm_wed_3', time: '11:30', displayTime: 'सुबह 11:30', type: 'दोपहर से पहले', item: '1 अमरूद या खीरा-टमाटर' },
+            { id: 'm_wed_4', time: '13:30', displayTime: 'दोपहर 1:30', type: 'दोपहर का खाना', item: '1–2 पीस भुनी या कम तेल की तरी वाली रोहू मछली + 1 मिस्सी रोटी + तोरई की सब्जी + सलाद' },
+            { id: 'm_wed_5', time: '17:00', displayTime: 'शाम 5:00', type: 'शाम का नाश्ता', item: '2 उबले अंडे का सफेद हिस्सा (काली मिर्च छिड़क कर)' },
+            { id: 'm_wed_6', time: '19:30', displayTime: 'रात 7:30', type: 'रात का खाना', item: '2 उबले अंडे का सलाद + 1 कटोरी पतली मूंग दाल' }
+          ],
+          thu: [
+            { id: 'm_thu_1', time: '06:45', displayTime: 'सुबह 6:45', type: 'सुबह की शुरुआत', item: '4–5 भीगे बादाम, 1–2 अखरोट + बिना चीनी की चाय' },
+            { id: 'm_thu_2', time: '08:30', displayTime: 'सुबह 8:30', type: 'नाश्ता', item: '2 बेसन-सब्जी के चीले + 1 छोटी कटोरी दही' },
+            { id: 'm_thu_3', time: '11:30', displayTime: 'सुबह 11:30', type: 'दोपहर से पहले', item: '1 छोटा सेब या 1 कटोरी पपीता' },
+            { id: 'm_thu_4', time: '13:30', displayTime: 'दोपहर 1:30', type: 'दोपहर का खाना', item: '1 कटोरी सोयाबीन बड़ी की सब्जी + भिंडी या परवल + 1–2 मिस्सी रोटी + सलाद' },
+            { id: 'm_thu_5', time: '17:00', displayTime: 'शाम 5:00', type: 'शाम का नाश्ता', item: '1 कटोरी मूंग दाल या सब्जी का सूप' },
+            { id: 'm_thu_6', time: '19:30', displayTime: 'रात 7:30', type: 'रात का खाना', item: 'पालक पनीर (कम तेल में) + 1 छोटी बेसन-गेहूँ की रोटी + सलाद' }
+          ],
+          fri: [
+            { id: 'm_fri_1', time: '06:45', displayTime: 'सुबह 6:45', type: 'सुबह की शुरुआत', item: '4–5 भीगे बादाम, 1–2 अखरोट + बिना चीनी की चाय' },
+            { id: 'm_fri_2', time: '08:30', displayTime: 'सुबह 8:30', type: 'नाश्ता', item: '2 उबले अंडे + 1 मल्टीग्रेन ब्रेड स्लाइस + टमाटर-खीरा' },
+            { id: 'm_fri_3', time: '11:30', displayTime: 'सुबह 11:30', type: 'दोपहर से पहले', item: '1 अमरूद या 1 संतरा' },
+            { id: 'm_fri_4', time: '13:30', displayTime: 'दोपहर 1:30', type: 'दोपहर का खाना', item: '100 ग्राम चिकन स्टू या हल्की तरी + 1–2 मिस्सी रोटी + बथुआ/सरसों साग + सलाद' },
+            { id: 'm_fri_5', time: '17:00', displayTime: 'शाम 5:00', type: 'शाम का नाश्ता', item: '1 मुट्ठी भुना चना + बिना चीनी की हर्बल/अदरक चाय (4 बजे से पहले)' },
+            { id: 'm_fri_6', time: '19:30', displayTime: 'रात 7:30', type: 'रात का खाना', item: '1 कटोरी चिकन और सब्जियों का गाढ़ा सूप + 1 छोटी मिस्सी रोटी' }
+          ],
+          sat: [
+            { id: 'm_sat_1', time: '06:45', displayTime: 'सुबह 6:45', type: 'सुबह की शुरुआत', item: '4–5 भीगे बादाम, 1–2 अखरोट + बिना चीनी की चाय' },
+            { id: 'm_sat_2', time: '08:30', displayTime: 'सुबह 8:30', type: 'नाश्ता', item: '1 कटोरी ओट्स उपमा (सब्जियों के साथ) + 2 उबले अंडे का सफेद हिस्सा' },
+            { id: 'm_sat_3', time: '11:30', displayTime: 'सुबह 11:30', type: 'दोपहर से पहले', item: '1 कटोरी पपीता या 1 छोटा सेब' },
+            { id: 'm_sat_4', time: '13:30', displayTime: 'दोपहर 1:30', type: 'दोपहर का खाना', item: '1 कटोरी चना दाल + करेला या गोभी की सब्जी + 1–2 मिस्सी रोटी + सलाद' },
+            { id: 'm_sat_5', time: '17:00', displayTime: 'शाम 5:00', type: 'शाम का नाश्ता', item: '1 मुट्ठी भुना मखाना' },
+            { id: 'm_sat_6', time: '19:30', displayTime: 'रात 7:30', type: 'रात का खाना', item: 'ग्रिल्ड मछली या पनीर भुर्जी + सलाद + 1 छोटी रोटी' }
+          ],
+          sun: [
+            { id: 'm_sun_1', time: '06:45', displayTime: 'सुबह 6:45', type: 'सुबह की शुरुआत', item: '4–5 भीगे बादाम, 1–2 अखरोट + बिना चीनी की चाय' },
+            { id: 'm_sun_2', time: '08:30', displayTime: 'सुबह 8:30', type: 'नाश्ता', item: 'अंडा भुर्जी (1 पूरा अंडा + 2 सफेद हिस्सा, टमाटर-प्याज) + 1 छोटी मिस्सी रोटी' },
+            { id: 'm_sun_3', time: '11:30', displayTime: 'सुबह 11:30', type: 'दोपहर से पहले', item: '1 अमरूद या 1 संतरा' },
+            { id: 'm_sun_4', time: '13:30', displayTime: 'दोपहर 1:30', type: 'दोपहर का खाना', item: 'होमस्टाइल चिकन करी (कम तेल, बिना क्रीम) + थोड़ा उसना चावल या 1 रोटी + सलाद' },
+            { id: 'm_sun_5', time: '17:00', displayTime: 'शाम 5:00', type: 'शाम का नाश्ता', item: '1 कटोरी चिकन यखनी सूप या भुना चना' },
+            { id: 'm_sun_6', time: '19:30', displayTime: 'रात 7:30', type: 'रात का खाना', item: 'हल्की मूंग दाल + लौकी या तोरई की सब्जी + 1 छोटी रोटी' }
+          ]
+        }
+      },
+
+      wife: {
+        id: 'wife',
+        name: 'पत्नी (30 वर्ष)',
+        title: 'पत्नी की दैनिक स्वास्थ्य सीमा',
+        subtitle: 'कद: 5 फीट 3 इंच • वर्तमान: 85+ किग्रा → लक्ष्य: 58–62 किग्रा • सक्रिय गृहिणी',
+        themeColor: '#9f1239',
+        macros: [
+          { label: 'प्रोटीन (चर्बी घटाए)', value: '65–80 ग्राम', sub: 'भूख नियंत्रित रखता है' },
+          { label: 'कार्ब्स (ऊर्जा)', value: '140–170 ग्राम', sub: 'मिस्सी रोटी / कम चावल' },
+          { label: 'चीनी व मीठा', value: '< 10 ग्राम', sub: '0–1 चम्मच अधिकतम' },
+          { label: 'नमक व तेल', value: '< 1 चम्मच नमक', sub: '3–4 छोटे चम्मच तेल' }
+        ],
+        healthNote: '💡 रसोई टिप: सुबह बच्चे का टिफिन बनाते समय अपना नाश्ता न छोड़ें—बच्चे के आटे से अपने लिए बिना घी की सूखी रोटी या चीला और 2 उबले अंडे अलग रख लें।',
+        waterSubtitle: 'दिन भर में 8–10 गिलास (लगभग 2.5 लीटर) पानी सही समय पर पिएँ:',
+        waterSchedule: [
+          { id: 'ww1', time: '06:00', displayTime: 'सुबह 6:00 बजे', title: '2 गिलास गुनगुना पानी (नींबू या जीरा पानी)', desc: 'सुबह उठते ही पिएँ, इससे मेटाबॉलिज्म तेज होता है।' },
+          { id: 'ww2', time: '10:30', displayTime: 'सुबह 10:30 बजे', title: '2 गिलास पानी या 1 गिलास नमकीन सत्तू/छाछ', desc: 'घर के काम के बीच शरीर में पानी की कमी न होने दें।' },
+          { id: 'ww3', time: '13:00', displayTime: 'दोपहर 1:00 बजे', title: '1 से 2 गिलास पानी (खाने से 30 मिनट पहले)', desc: 'खाने से पहले पानी पीने से ओवरईटिंग (ज़्यादा खाने) से बचाव होता है।' },
+          { id: 'ww4', time: '16:00', displayTime: 'शाम 4:00 बजे', title: '1 से 2 गिलास पानी', desc: 'शाम की चाय से पहले पानी पिएँ।' },
+          { id: 'ww5', time: '20:30', displayTime: 'रात 8:30 बजे', title: '1 गिलास गुनगुना पानी (खाने के 30 मिनट बाद)', desc: 'पाचन बेहतर रखने के लिए और रात 10:30 बजे तक सो जाएँ।' }
+        ],
+        exerciseSubtitle: 'रोज़ 25–30 मिनट की कसरत और 7,000–8,000 कदम चलने का लक्ष्य:',
+        exercises: [
+          { id: 'we1', time: '09:00', title: '20–25 मिनट तेज कदमों से चलना (ब्रिस्क वॉक)', desc: 'बच्चे को स्कूल भेजने के बाद छत पर, पार्क में या घर में तेज चाल से चलें।' },
+          { id: 'we2', time: '14:15', title: 'दोपहर खाने के बाद 10 मिनट टहलना', desc: 'खाने के बाद बैठने या सोने के बजाय घर में टहलें।' },
+          { id: 'we3', time: '17:30', title: 'स्क्वाट्स (12 बार × 2 राउंड) और सीढ़ियाँ चढ़ना (5 मिनट)', desc: 'कमर और पैरों की चर्बी घटाने के लिए सबसे असरदार कसरत।' },
+          { id: 'we4', time: '17:45', title: 'दीवार/स्लैब पुश-अप (15 बार) और सूर्य नमस्कार (5–7 बार)', desc: 'हाथों की मजबूती और पूरे शरीर की स्ट्रेचिंग के लिए।' },
+          { id: 'we5', time: '21:00', title: 'रोज़ 7,000–8,000 कदम पूरे करना', desc: 'फ़ोन पर बात करते समय बैठने की जगह टहलते हुए बात करें।' }
+        ],
+        meals: {
+          mon: [
+            { id: 'w_mon_1', time: '06:15', displayTime: 'सुबह 6:15', type: 'सुबह की शुरुआत', item: '4–5 भीगे बादाम और 1 अखरोट (बच्चे को तैयार करने से पहले)' },
+            { id: 'w_mon_2', time: '08:15', displayTime: 'सुबह 8:15', type: 'नाश्ता', item: '2 अंडे का ऑमलेट (सब्जियों के साथ) + 1 मल्टीग्रेन ब्रेड या 1 छोटी मिस्सी रोटी' },
+            { id: 'w_mon_3', time: '11:00', displayTime: 'सुबह 11:00', type: 'मिड-मॉर्निंग', item: '1 अमरूद या 1 सेब' },
+            { id: 'w_mon_4', time: '13:30', displayTime: 'दोपहर 1:30', type: 'दोपहर का खाना', item: '100 ग्राम कम तेल की चिकन करी + 1–2 छोटी मिस्सी रोटी + लौकी की सब्जी + सलाद' },
+            { id: 'w_mon_5', time: '17:00', displayTime: 'शाम 5:00', type: 'शाम का नाश्ता', item: 'कम चीनी या बिना चीनी की चाय + 1 मुट्ठी भुना मखाना' },
+            { id: 'w_mon_6', time: '19:30', displayTime: 'रात 7:30', type: 'रात का खाना', item: '1 कटोरी मूंग दाल खिचड़ी (खूब सारी सब्जियों वाली) + 1 कटोरी दही' }
+          ],
+          tue: [
+            { id: 'w_tue_1', time: '06:15', displayTime: 'सुबह 6:15', type: 'सुबह की शुरुआत', item: '4–5 भीगे बादाम और 1 अखरोट' },
+            { id: 'w_tue_2', time: '08:15', displayTime: 'सुबह 8:15', type: 'नाश्ता', item: '2 मूंग दाल या बेसन के चीले (पनीर भरा हुआ) + हरी चटनी' },
+            { id: 'w_tue_3', time: '11:00', displayTime: 'सुबह 11:00', type: 'मिड-मॉर्निंग', item: '1 कटोरी पपीता या 1 संतरा' },
+            { id: 'w_tue_4', time: '13:30', displayTime: 'दोपहर 1:30', type: 'दोपहर का खाना', item: '1 कटोरी अरहर दाल + पालक या भिंडी की सब्जी + 1–2 मिस्सी रोटी + सलाद' },
+            { id: 'w_tue_5', time: '17:00', displayTime: 'शाम 5:00', type: 'शाम का नाश्ता', item: 'कम चीनी की चाय + 1 मुट्ठी भुना काला चना' },
+            { id: 'w_tue_6', time: '19:30', displayTime: 'रात 7:30', type: 'रात का खाना', item: 'भुना चिकन टिक्का (100 ग्राम) + सलाद + 1 छोटी रोटी' }
+          ],
+          wed: [
+            { id: 'w_wed_1', time: '06:15', displayTime: 'सुबह 6:15', type: 'सुबह की शुरुआत', item: '4–5 भीगे बादाम और 1 अखरोट' },
+            { id: 'w_wed_2', time: '08:15', displayTime: 'सुबह 8:15', type: 'नाश्ता', item: '1 कटोरी नमकीन दलिया या पोहा (मूंगफली और मटर डालकर) + 1 कटोरी दही' },
+            { id: 'w_wed_3', time: '11:00', displayTime: 'सुबह 11:00', type: 'मिड-मॉर्निंग', item: '1 अमरूद या खीरा-टमाटर सलाद' },
+            { id: 'w_wed_4', time: '13:30', displayTime: 'दोपहर 1:30', type: 'दोपहर का खाना', item: '1–2 पीस भुनी या कम तेल की तरी वाली रोहू मछली + आधा कटोरी चावल या 1 रोटी + सलाद' },
+            { id: 'w_wed_5', time: '17:00', displayTime: 'शाम 5:00', type: 'शाम का नाश्ता', item: '2 उबले अंडे का सफेद हिस्सा + बिना चीनी की चाय' },
+            { id: 'w_wed_6', time: '19:30', displayTime: 'रात 7:30', type: 'रात का खाना', item: '2 उबले अंडे का चाट/सलाद + 1 कटोरी पतली मसूर दाल' }
+          ],
+          thu: [
+            { id: 'w_thu_1', time: '06:15', displayTime: 'सुबह 6:15', type: 'सुबह की शुरुआत', item: '4–5 भीगे बादाम और 1 अखरोट' },
+            { id: 'w_thu_2', time: '08:15', displayTime: 'सुबह 8:15', type: 'नाश्ता', item: '2 उबले अंडे + 1 गिलास नमकीन चने का सत्तू या छाछ' },
+            { id: 'w_thu_3', time: '11:00', displayTime: 'सुबह 11:00', type: 'मिड-मॉर्निंग', item: '1 छोटा सेब या 1 कटोरी पपीता' },
+            { id: 'w_thu_4', time: '13:30', displayTime: 'दोपहर 1:30', type: 'दोपहर का खाना', item: '1 कटोरी सोयाबीन बड़ी की सब्जी + तोरई या परवल + 1–2 मिस्सी रोटी + सलाद' },
+            { id: 'w_thu_5', time: '17:00', displayTime: 'शाम 5:00', type: 'शाम का नाश्ता', item: 'चाय + 1 मुट्ठी भुना मखाना और मूंगफली' },
+            { id: 'w_thu_6', time: '19:30', displayTime: 'रात 7:30', type: 'रात का खाना', item: 'पनीर भुर्जी (कम तेल में) + 1 छोटी रोटी + खीरा-टमाटर सलाद' }
+          ],
+          fri: [
+            { id: 'w_fri_1', time: '06:15', displayTime: 'सुबह 6:15', type: 'सुबह की शुरुआत', item: '4–5 भीगे बादाम और 1 अखरोट' },
+            { id: 'w_fri_2', time: '08:15', displayTime: 'सुबह 8:15', type: 'नाश्ता', item: '1 कटोरी ओट्स उपमा (सब्जियों वाला) + 2 अंडे का सफेद हिस्सा' },
+            { id: 'w_fri_3', time: '11:00', displayTime: 'सुबह 11:00', type: 'मिड-मॉर्निंग', item: '1 अमरूद या 1 संतरा' },
+            { id: 'w_fri_4', time: '13:30', displayTime: 'दोपहर 1:30', type: 'दोपहर का खाना', item: '1 कटोरी राजमा या छोले (कम तेल में) + 1 रोटी या आधा कटोरी चावल + सलाद' },
+            { id: 'w_fri_5', time: '17:00', displayTime: 'शाम 5:00', type: 'शाम का नाश्ता', item: '1 मुट्ठी भुना चना + चाय' },
+            { id: 'w_fri_6', time: '19:30', displayTime: 'रात 7:30', type: 'रात का खाना', item: '1 कटोरी चिकन और सब्जियों का सूप + 1 छोटी मिस्सी रोटी' }
+          ],
+          sat: [
+            { id: 'w_sat_1', time: '06:15', displayTime: 'सुबह 6:15', type: 'सुबह की शुरुआत', item: '4–5 भीगे बादाम और 1 अखरोट' },
+            { id: 'w_sat_2', time: '08:15', displayTime: 'सुबह 8:15', type: 'नाश्ता', item: 'अंडा भुर्जी (2 अंडे, टमाटर-प्याज) + 1 छोटी मिस्सी रोटी' },
+            { id: 'w_sat_3', time: '11:00', displayTime: 'सुबह 11:00', type: 'मिड-मॉर्निंग', item: '1 कटोरी पपीता या 1 सेब' },
+            { id: 'w_sat_4', time: '13:30', displayTime: 'दोपहर 1:30', type: 'दोपहर का खाना', item: '100 ग्राम चिकन स्टू या हल्की तरी + 1–2 मिस्सी रोटी + मौसमी साग + सलाद' },
+            { id: 'w_sat_5', time: '17:00', displayTime: 'शाम 5:00', type: 'शाम का नाश्ता', item: '1 गिलास नमकीन सत्तू या भुना मखाना' },
+            { id: 'w_sat_6', time: '19:30', displayTime: 'रात 7:30', type: 'रात का खाना', item: '1 कटोरी लौकी या तोरई की सब्जी + 1 कटोरी मूंग दाल + 1 रोटी' }
+          ],
+          sun: [
+            { id: 'w_sun_1', time: '06:15', displayTime: 'सुबह 6:15', type: 'सुबह की शुरुआत', item: '4–5 भीगे बादाम और 1 अखरोट' },
+            { id: 'w_sun_2', time: '08:30', displayTime: 'सुबह 8:30', type: 'नाश्ता', item: '1 छोटा पनीर या अंडा स्टफ्ड पराठा (बिना घी का सिका हुआ) + दही' },
+            { id: 'w_sun_3', time: '11:00', displayTime: 'सुबह 11:00', type: 'मिड-मॉर्निंग', item: '1 अमरूद या 1 संतरा' },
+            { id: 'w_sun_4', time: '13:30', displayTime: 'दोपहर 1:30', type: 'दोपहर का खाना', item: 'घर का बना चिकन/मछली या पनीर करी + 1 रोटी + भरपूर सलाद और रायता' },
+            { id: 'w_sun_5', time: '17:00', displayTime: 'शाम 5:00', type: 'शाम का नाश्ता', item: 'चाय + भुना चना या मखाना' },
+            { id: 'w_sun_6', time: '19:30', displayTime: 'रात 7:30', type: 'रात का खाना', item: '1 कटोरी वेजिटेबल सूप या दाल + उबली सब्जियाँ और पनीर' }
+          ]
+        }
+      }
+    };
+
+    // =========================================================================
+    // 2. STATE & LOCAL STORAGE (100% ON-DEVICE PRIVACY)
+    // =========================================================================
+    function getTodayDayKey() {
+      const jsDay = new Date().getDay(); // 0 = Sun, 1 = Mon ... 6 = Sat
+      const map = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+      return map[jsDay];
+    }
+
+    function getTodayDateString() {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    }
+
+    let currentProfile = localStorage.getItem('pss_active_profile') || 'mother';
+    let currentDay = getTodayDayKey();
+    let triggeredMinutes = new Set();
+
+    function getStorageKey(profileId, dayKey) {
+      return `pss_checks_${getTodayDateString()}_${profileId}_${dayKey}`;
+    }
+
+    function loadCheckedItems(profileId, dayKey) {
+      try {
+        const raw = localStorage.getItem(getStorageKey(profileId, dayKey));
+        return raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function saveCheckedItems(profileId, dayKey, data) {
+      try {
+        localStorage.setItem(getStorageKey(profileId, dayKey), JSON.stringify(data));
+      } catch (e) {
+        showBanner('फ़ोन की स्टोरेज भर गई है, कृपया पुराने निशान रीसेट करें।', 'warn');
+      }
+    }
+
+    // =========================================================================
+    // 3. UI RENDERING FUNCTIONS
+    // =========================================================================
+    function switchProfile(profileId) {
+      currentProfile = profileId;
+      localStorage.setItem('pss_active_profile', profileId);
+      renderApp();
+    }
+
+    function selectDay(dayKey) {
+      currentDay = dayKey;
+      renderApp();
+    }
+
+    function selectToday() {
+      currentDay = getTodayDayKey();
+      renderApp();
+    }
+
+    function toggleTask(taskId) {
+      const checked = loadCheckedItems(currentProfile, currentDay);
+      if (checked[taskId]) {
+        delete checked[taskId];
+      } else {
+        checked[taskId] = true;
+      }
+      saveCheckedItems(currentProfile, currentDay, checked);
+      updateProgress();
+    }
+
+    function renderApp() {
+      const profile = PROFILES[currentProfile];
+      const isWife = currentProfile === 'wife';
+      const checked = loadCheckedItems(currentProfile, currentDay);
+
+      // Update body theme class & header colors
+      document.body.classList.toggle('wife-theme', isWife);
+      const header = document.getElementById('appHeader');
+      header.className = `${isWife ? 'bg-rose-800' : 'bg-teal-700'} text-white shadow-md sticky top-0 z-30 transition-colors duration-300`;
+
+      // Update Tab Buttons
+      const tabMother = document.getElementById('tabMother');
+      const tabWife = document.getElementById('tabWife');
+      if (!isWife) {
+        tabMother.className = 'py-2.5 px-3 rounded-xl font-bold text-sm sm:text-base transition-all flex items-center justify-center gap-1.5 bg-white text-teal-800 shadow';
+        tabWife.className = 'py-2.5 px-3 rounded-xl font-bold text-sm sm:text-base transition-all flex items-center justify-center gap-1.5 text-white/90 hover:bg-white/10';
+      } else {
+        tabWife.className = 'py-2.5 px-3 rounded-xl font-bold text-sm sm:text-base transition-all flex items-center justify-center gap-1.5 bg-white text-rose-800 shadow';
+        tabMother.className = 'py-2.5 px-3 rounded-xl font-bold text-sm sm:text-base transition-all flex items-center justify-center gap-1.5 text-white/90 hover:bg-white/10';
+      }
+
+      // Profile Summary Card
+      const profileTitle = document.getElementById('profileTitle');
+      profileTitle.textContent = profile.title;
+      profileTitle.className = `text-lg font-bold ${isWife ? 'text-rose-800' : 'text-teal-800'}`;
+      document.getElementById('profileSubtitle').textContent = profile.subtitle;
+
+      const todayLabel = DAYS.find(d => d.key === getTodayDayKey())?.label || '';
+      document.getElementById('todayDateBadge').textContent = `आज: ${todayLabel}`;
+
+      // Macros Grid
+      const macroGrid = document.getElementById('macroGrid');
+      macroGrid.innerHTML = profile.macros.map(m => `
+        <div class="bg-stone-50 border border-stone-200/80 rounded-xl p-2.5">
+          <div class="text-xs text-stone-500 font-medium">${m.label}</div>
+          <div class="text-sm sm:text-base font-extrabold text-stone-900 mt-0.5">${m.value}</div>
+          <div class="text-[11px] text-stone-500 mt-0.5">${m.sub}</div>
+        </div>
+      `).join('');
+
+      // Health Note Box
+      const healthNoteBox = document.getElementById('healthNoteBox');
+      healthNoteBox.textContent = profile.healthNote;
+      healthNoteBox.className = isWife
+        ? 'mt-3 bg-rose-50/80 border-l-4 border-rose-700 p-2.5 rounded-r-xl text-xs sm:text-sm text-rose-950 leading-relaxed'
+        : 'mt-3 bg-teal-50/80 border-l-4 border-teal-600 p-2.5 rounded-r-xl text-xs sm:text-sm text-teal-950 leading-relaxed';
+
+      // Day Selector Pills
+      const todayKey = getTodayDayKey();
+      const dayPills = document.getElementById('dayPills');
+      dayPills.innerHTML = DAYS.map(d => {
+        const isSelected = d.key === currentDay;
+        const isToday = d.key === todayKey;
+        const activeBg = isWife ? 'bg-rose-800 text-white border-rose-800 shadow-sm' : 'bg-teal-700 text-white border-teal-700 shadow-sm';
+        const idleBg = 'bg-stone-100 text-stone-700 border-stone-200 hover:bg-stone-200';
+        return `
+          <button onclick="selectDay('${d.key}')" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold border transition shrink-0 flex items-center gap-1 ${isSelected ? activeBg : idleBg}">
+            <span>${d.label}</span>
+            ${isToday ? '<span class="w-2 h-2 rounded-full bg-amber-400 inline-block" title="आज"></span>' : ''}
+          </button>
+        `;
+      }).join('');
+
+      // Meal Section
+      const selectedDayObj = DAYS.find(d => d.key === currentDay);
+      document.getElementById('mealSectionTitle').innerHTML = `<span>🍽️ ${selectedDayObj.label} का भोजन चार्ट</span>`;
+      const dayMeals = profile.meals[currentDay] || [];
+      document.getElementById('mealList').innerHTML = dayMeals.map(meal => `
+        <label class="flex items-start gap-3 py-3.5 cursor-pointer hover:bg-stone-50/80 px-1 rounded-xl transition">
+          <input type="checkbox" class="task-checkbox mt-1" ${checked[meal.id] ? 'checked' : ''} onchange="toggleTask('${meal.id}')" />
+          <div class="flex-1 min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-xs font-bold px-2 py-0.5 rounded-md ${isWife ? 'bg-rose-100 text-rose-900' : 'bg-teal-100 text-teal-900'}">${meal.displayTime}</span>
+              <span class="text-xs font-bold text-stone-500">${meal.type}</span>
+            </div>
+            <p class="text-sm sm:text-base font-semibold text-stone-900 mt-1 leading-snug">${meal.item}</p>
+          </div>
+        </label>
+      `).join('');
+
+      // Water Section
+      document.getElementById('waterSubtitle').textContent = profile.waterSubtitle;
+      document.getElementById('waterList').innerHTML = profile.waterSchedule.map(w => `
+        <label class="flex items-start gap-3 py-3.5 cursor-pointer hover:bg-stone-50/80 px-1 rounded-xl transition">
+          <input type="checkbox" class="task-checkbox mt-1" ${checked[w.id] ? 'checked' : ''} onchange="toggleTask('${w.id}')" />
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold px-2 py-0.5 rounded-md bg-sky-100 text-sky-900">${w.displayTime}</span>
+            </div>
+            <p class="text-sm sm:text-base font-bold text-stone-900 mt-1">${w.title}</p>
+            <p class="text-xs sm:text-sm text-stone-600 mt-0.5">${w.desc}</p>
+          </div>
+        </label>
+      `).join('');
+
+      // Exercise Section
+      document.getElementById('exerciseSubtitle').textContent = profile.exerciseSubtitle;
+      document.getElementById('exerciseList').innerHTML = profile.exercises.map(ex => `
+        <label class="flex items-start gap-3 py-3.5 cursor-pointer hover:bg-stone-50/80 px-1 rounded-xl transition">
+          <input type="checkbox" class="task-checkbox mt-1" ${checked[ex.id] ? 'checked' : ''} onchange="toggleTask('${ex.id}')" />
+          <div class="flex-1 min-w-0">
+            <p class="text-sm sm:text-base font-bold text-stone-900">${ex.title}</p>
+            <p class="text-xs sm:text-sm text-stone-600 mt-0.5 leading-relaxed">${ex.desc}</p>
+          </div>
+        </label>
+      `).join('');
+
+      updateProgress();
+    }
+
+    function updateProgress() {
+      const profile = PROFILES[currentProfile];
+      const checked = loadCheckedItems(currentProfile, currentDay);
+      const dayMeals = profile.meals[currentDay] || [];
+      const totalItems = dayMeals.length + profile.waterSchedule.length + profile.exercises.length;
+
+      let completed = 0;
+      dayMeals.forEach(m => { if (checked[m.id]) completed++; });
+      profile.waterSchedule.forEach(w => { if (checked[w.id]) completed++; });
+      profile.exercises.forEach(e => { if (checked[e.id]) completed++; });
+
+      const pct = totalItems > 0 ? Math.round((completed / totalItems) * 100) : 0;
+      const isWife = currentProfile === 'wife';
+
+      const progressText = document.getElementById('progressText');
+      progressText.textContent = `${pct}% (${completed}/${totalItems})`;
+      progressText.className = `text-base sm:text-lg font-extrabold ${isWife ? 'text-rose-800' : 'text-teal-700'}`;
+
+      const progressBar = document.getElementById('progressBar');
+      progressBar.style.width = `${pct}%`;
+      progressBar.className = `${isWife ? 'bg-rose-700' : 'bg-teal-600'} h-3.5 rounded-full transition-all duration-300`;
+    }
+
+    // =========================================================================
+    // 4. IN-APP BANNER & RESET CONTROLS (NO ALERT/CONFIRM POPUPS)
+    // =========================================================================
+    function showBanner(msg, type = 'info') {
+      const banner = document.getElementById('statusBanner');
+      const msgEl = document.getElementById('statusBannerMsg');
+      const iconEl = document.getElementById('statusBannerIcon');
+
+      msgEl.textContent = msg;
+      banner.classList.remove('hidden', 'bg-teal-50', 'border-teal-300', 'text-teal-950', 'bg-amber-50', 'border-amber-300', 'text-amber-950');
+
+      if (type === 'warn') {
+        banner.classList.add('bg-amber-50', 'border-amber-300', 'text-amber-950');
+        iconEl.textContent = '⏰';
+      } else {
+        banner.classList.add('bg-teal-50', 'border-teal-300', 'text-teal-950');
+        iconEl.textContent = '✅';
+      }
+    }
+
+    function hideBanner() {
+      document.getElementById('statusBanner').classList.add('hidden');
+    }
+
+    function confirmResetToday() {
+      document.getElementById('resetConfirmBox').classList.remove('hidden');
+    }
+
+    function cancelResetToday() {
+      document.getElementById('resetConfirmBox').classList.add('hidden');
+    }
+
+    function executeResetToday() {
+      localStorage.removeItem(getStorageKey(currentProfile, currentDay));
+      cancelResetToday();
+      renderApp();
+      showBanner('आज के सभी निशान सफलतापूर्वक रीसेट कर दिए गए हैं।', 'info');
+    }
+
+    // =========================================================================
+    // 5. LIVE WEB NOTIFICATIONS & GENTLE CHIME WHILE APP IS OPEN
+    // =========================================================================
+    function playGentleChime() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+        osc.frequency.setValueAtTime(880, ctx.currentTime + 0.18); // A5
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.6);
+      } catch (e) {}
+    }
+
+    function requestBrowserNotifications() {
+      if (!('Notification' in window)) {
+        showBanner('आपके ब्राउज़र में लाइव नोटिफ़िकेशन उपलब्ध नहीं है। कृपया नीचे दिए गए "फ़ोन कैलेंडर अलार्म (.ics)" बटन का उपयोग करें।', 'warn');
+        return;
+      }
+      Notification.requestPermission().then(permission => {
+        updateNotifButtonUI(permission);
+        if (permission === 'granted') {
+          playGentleChime();
+          showBanner('अलर्ट चालू हो गए हैं! ऐप खुला रहने पर समय होते ही घंटी और संदेश दिखेगा। स्थायी अलार्म के लिए नीचे कैलेंडर फ़ाइल भी डाउनलोड करें।', 'info');
+        } else {
+          showBanner('नोटिफ़िकेशन की अनुमति नहीं मिली। स्थायी फ़ोन अलार्म के लिए नीचे "फ़ोन कैलेंडर अलार्म डाउनलोड करें (.ics)" दबाएँ।', 'warn');
+        }
+      });
+    }
+
+    function updateNotifButtonUI(permission) {
+      const icon = document.getElementById('notifIcon');
+      const text = document.getElementById('notifText');
+      if (permission === 'granted') {
+        icon.textContent = '🔔';
+        text.textContent = 'अलर्ट चालू है';
+      }
+    }
+
+    function checkScheduledReminders() {
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      const currentHHMM = `${hh}:${mm}`;
+      const minuteStamp = `${getTodayDateString()}_${currentHHMM}`;
+
+      if (triggeredMinutes.has(minuteStamp)) return;
+
+      const profile = PROFILES[currentProfile];
+      const todayKey = getTodayDayKey();
+      const allEvents = [
+        ...(profile.meals[todayKey] || []).map(m => ({ time: m.time, title: `🍽️ ${m.type}: ${m.item}` })),
+        ...profile.waterSchedule.map(w => ({ time: w.time, title: `💧 पानी का समय: ${w.title}` })),
+        ...profile.exercises.map(e => ({ time: e.time, title: `🏃‍♀️ कसरत: ${e.title}` }))
+      ];
+
+      const matched = allEvents.filter(ev => ev.time === currentHHMM);
+      if (matched.length > 0) {
+        triggeredMinutes.add(minuteStamp);
+        const messageText = matched.map(m => m.title).join(' | ');
+        playGentleChime();
+        showBanner(`अभी का समय (${currentHHMM}): ${messageText}`, 'warn');
+
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification(`परिवार सेहत साथी (${profile.name})`, {
+            body: messageText
+          });
+        }
+      }
+    }
+
+    // =========================================================================
+    // 6. DYNAMIC .ICS RECURRING PHONE CALENDAR ALARM GENERATOR (100% OFFLINE)
+    // =========================================================================
+    function downloadICS() {
+      const profile = PROFILES[currentProfile];
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      const dateStamp = `${yyyy}${mm}${dd}`;
+
+      const events = [];
+
+      // Add daily recurring water alarms
+      profile.waterSchedule.forEach((w, idx) => {
+        const [h, m] = w.time.split(':');
+        events.push({
+          uid: `water-${profile.id}-${idx}@parivarsehatsathi.local`,
+          start: `${dateStamp}T${h}${m}00`,
+          end: `${dateStamp}T${h}${String(Math.min(59, Number(m) + 10)).padStart(2, '0')}00`,
+          summary: `💧 पानी: ${w.title} (${profile.name})`,
+          description: w.desc
+        });
+      });
+
+      // Add daily recurring meal times (using representative daily schedule)
+      const sampleMeals = profile.meals['mon'];
+      sampleMeals.forEach((meal, idx) => {
+        const [h, m] = meal.time.split(':');
+        events.push({
+          uid: `meal-${profile.id}-${idx}@parivarsehatsathi.local`,
+          start: `${dateStamp}T${h}${m}00`,
+          end: `${dateStamp}T${h}${String(Math.min(59, Number(m) + 15)).padStart(2, '0')}00`,
+          summary: `🍽️ ${meal.type} का समय (${profile.name})`,
+          description: `आज का डाइट चार्ट देखने के लिए परिवार सेहत साथी ऐप खोलें। उदाहरण: ${meal.item}`
+        });
+      });
+
+      // Add daily recurring exercise reminders
+      profile.exercises.forEach((ex, idx) => {
+        const [h, m] = ex.time.split(':');
+        events.push({
+          uid: `ex-${profile.id}-${idx}@parivarsehatsathi.local`,
+          start: `${dateStamp}T${h}${m}00`,
+          end: `${dateStamp}T${h}${String(Math.min(59, Number(m) + 15)).padStart(2, '0')}00`,
+          summary: `🏃‍♀️ कसरत: ${ex.title} (${profile.name})`,
+          description: ex.desc
+        });
+      });
+
+      let icsLines = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Parivar Sehat Sathi//Hindi Health PWA//HI',
+        'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH'
+      ];
+
+      events.forEach(ev => {
+        icsLines.push(
+          'BEGIN:VEVENT',
+          `UID:${ev.uid}`,
+          `DTSTAMP:${dateStamp}T060000Z`,
+          `DTSTART:${ev.start}`,
+          `DTEND:${ev.end}`,
+          'RRULE:FREQ=DAILY',
+          `SUMMARY:${ev.summary}`,
+          `DESCRIPTION:${ev.description}`,
+          'BEGIN:VALARM',
+          'TRIGGER:-PT0M',
+          'ACTION:DISPLAY',
+          `DESCRIPTION:${ev.summary}`,
+          'END:VALARM',
+          'END:VEVENT'
+        );
+      });
+
+      icsLines.push('END:VCALENDAR');
+
+      const blob = new Blob([icsLines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sehat_alarm_${profile.id}.ics`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      showBanner(`"${profile.name}" के लिए रोज़ के कैलेंडर अलार्म की फ़ाइल डाउनलोड हो गई है। अब ऊपर नोटिफ़िकेशन बार से फ़ाइल खोलकर "Add All / Save" दबा दें।`, 'info');
+    }
+
+    // =========================================================================
+    // 7. PWA MANIFEST & SERVICE WORKER (SINGLE-FILE OFFLINE SUPPORT)
+    // =========================================================================
+    function initPWA() {
+      try {
+        const manifest = {
+          name: 'परिवार सेहत साथी',
+          short_name: 'सेहत साथी',
+          start_url: '.',
+          display: 'standalone',
+          background_color: '#f5f5f4',
+          theme_color: '#0f766e',
+          icons: [
+            {
+              src: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%230f766e"/><text x="50" y="66" font-size="54" text-anchor="middle">🌿</text></svg>',
+              sizes: '192x192',
+              type: 'image/svg+xml'
+            }
+          ]
+        };
+        const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+        const manifestLink = document.createElement('link');
+        manifestLink.rel = 'manifest';
+        manifestLink.href = URL.createObjectURL(manifestBlob);
+        document.head.appendChild(manifestLink);
+      } catch (e) {}
+    }
+
+    // Initialize on load
+    window.addEventListener('DOMContentLoaded', () => {
+      initPWA();
+      if ('Notification' in window) {
+        updateNotifButtonUI(Notification.permission);
+      }
+      renderApp();
+      setInterval(checkScheduledReminders, 20000);
+    });
+  </script>
+</body>
+</html>
